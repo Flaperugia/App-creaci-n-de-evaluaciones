@@ -1,0 +1,120 @@
+@import "tailwindcss";
+@import "survey-core/survey-core.fontless.min.css";
+
+@layer base {
+  :root {
+    --brand-primary: #0b3b70;
+    --brand-primary-hover: #082d56;
+    --brand-primary-soft: #e8f0fa;
+    --brand-primary-text: #0b3b70;
+    --brand-on-primary: #ffffff;
+    --brand-ring: #0b3b70;
+
+    /* SurveyJS MIT theme alignment with institutional identity */
+    --sjs-primary-backcolor: var(--brand-primary);
+    --sjs-primary-backcolor-light: var(--brand-primary-soft);
+    --sjs-primary-backcolor-dark: var(--brand-primary-hover);
+    --sjs-primary-forecolor: var(--brand-on-primary);
+    --sjs-general-backcolor: #ffffff;
+    --sjs-general-backcolor-dim: #ffffff;
+    --sjs-general-forecolor: #0f1e36;
+    --sjs-general-forecolor-light: #475569;
+    --sjs-border-default: #cbd5e1;
+    --sjs-border-light: #e2e8f0;
+    --sjs-font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    --sjs-corner-radius: 10px;
+  }
+
+  html {
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    color: #0f1e36;
+    background-color: #f7f9fc;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+
+  .font-mono-tabular {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  *:focus-visible {
+    outline: 2px solid var(--brand-ring);
+    outline-offset: 2px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}
+
+/* Clean institutional integration for SurveyJS Form Library inside cards */
+.institutional-survey .sd-root-modern {
+  background-color: transparent !important;
+}
+.institutional-survey .sd-container-modern {
+  margin: 0 !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+}
+.institutional-survey .sd-body {
+  padding: 0 !important;
+}
+.institutional-survey .sd-page {
+  padding: 0 !important;
+}
+.institutional-survey .sd-row {
+  margin-top: 0 !important;
+}
+.institutional-survey .sd-question {
+  padding: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+.institutional-survey .sd-question__title {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  font-size: 1rem !important;
+  font-weight: 700 !important;
+  color: #0f1e36 !important;
+}
+.institutional-survey .sd-input,
+.institutional-survey .sd-comment {
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: none !important;
+  font-size: 0.9375rem !important;
+  color: #0f1e36 !important;
+}
+.institutional-survey .sd-input:focus,
+.institutional-survey .sd-comment:focus {
+  border-color: var(--brand-primary) !important;
+}
+
+@media print {
+  body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-overflow-visible {
+    overflow: visible !important;
+  }
+}

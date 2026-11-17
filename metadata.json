@@ -1,0 +1,6 @@
+{
+  "name": "Plataforma de Evaluaciones Escolares",
+  "description": "Aplicación web institucional minimalista para la creación, resolución y corrección de evaluaciones escolares.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

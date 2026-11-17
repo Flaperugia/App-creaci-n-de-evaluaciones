@@ -1,0 +1,562 @@
+{
+  "entities": {
+    "AuthorizedUser": {
+      "title": "AuthorizedUser",
+      "description": "Usuario autorizado para acceder al panel docente o de administración. El ID del documento es el correo normalizado en minúsculas.",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 160,
+          "pattern": "^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$",
+          "description": "Correo electrónico de Google autorizado en minúsculas."
+        },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nombre y apellido del docente o administrador."
+        },
+        "role": {
+          "type": "string",
+          "enum": ["teacher", "admin"],
+          "description": "Rol autorizado en la plataforma."
+        },
+        "active": {
+          "type": "boolean",
+          "description": "Indica si el acceso del usuario se encuentra habilitado."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal del servidor al crear el registro."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal del servidor de la última actualización."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID de Firebase Auth del administrador que modificó el registro."
+        }
+      },
+      "required": ["email", "name", "role", "active", "createdAt", "updatedAt", "updatedBy"]
+    },
+    "SchoolConfig": {
+      "title": "SchoolConfig",
+      "description": "Identidad visual y nombre institucional de la escuela.",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nombre de la escuela."
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 120,
+          "description": "Subtítulo institucional."
+        },
+        "primaryColor": {
+          "type": "string",
+          "minLength": 7,
+          "maxLength": 7,
+          "pattern": "^#[0-9a-fA-F]{6}$",
+          "description": "Color principal en formato hexadecimal."
+        },
+        "logoPreset": {
+          "type": "string",
+          "enum": ["laurel_book", "technical_shield", "academic_pillar", "custom_url"],
+          "description": "Identificador de logo predefinido o personalizado."
+        },
+        "customLogoDataUrl": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 300000,
+          "description": "URL o Data URL opcional del logo escolar."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal del servidor de la última actualización."
+        },
+        "updatedBy": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID de Firebase Auth del administrador."
+        }
+      },
+      "required": ["name", "subtitle", "primaryColor", "logoPreset", "updatedAt", "updatedBy"]
+    },
+    "ExamPrivate": {
+      "title": "ExamPrivate",
+      "description": "Evaluación completa propiedad de un docente, incluyendo soluciones privadas y claves de corrección.",
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "description": "Versión tipada del esquema JSON de la evaluación."
+        },
+        "slug": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9\\-]+$",
+          "description": "Identificador único para enlace público."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Título de la evaluación."
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 180,
+          "description": "Tipo o subtítulo."
+        },
+        "yearLabel": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 60,
+          "description": "Año escolar."
+        },
+        "course": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Curso asignado."
+        },
+        "teachersText": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160,
+          "description": "Texto visible con los docentes."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID del docente creador."
+        },
+        "ownerEmail": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 160,
+          "description": "Correo del docente creador."
+        },
+        "initialInstructions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2000,
+          "description": "Instrucciones mostradas en la portada."
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "description": "Cantidad máxima de intentos permitidos."
+        },
+        "feedbackEnabled": {
+          "type": "boolean",
+          "description": "Habilita devolución en preguntas cerradas."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["borrador", "publicada", "cerrada"],
+          "description": "Estado de publicación."
+        },
+        "submissionsCount": {
+          "type": "integer",
+          "description": "Contador referencial de entregas."
+        },
+        "consignas": {
+          "type": "array",
+          "description": "Bloques de consignas con preguntas y soluciones privadas."
+        },
+        "gradingConfig": {
+          "type": "object",
+          "description": "Configuración opcional de escala de calificación y criterio de aprobación."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal del servidor al crear."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal del servidor al actualizar."
+        }
+      },
+      "required": ["schemaVersion", "slug", "title", "course", "ownerId", "ownerEmail", "maxAttempts", "feedbackEnabled", "status", "submissionsCount", "consignas", "createdAt", "updatedAt"]
+    },
+    "ExamPublic": {
+      "title": "ExamPublic",
+      "description": "Proyección pública sin soluciones de una evaluación explícitamente publicada, accesible por estudiantes sin cuenta.",
+      "type": "object",
+      "properties": {
+        "schemaVersion": {
+          "type": "integer",
+          "description": "Versión tipada del esquema JSON de la evaluación."
+        },
+        "examId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID del documento origen en exams."
+        },
+        "slug": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9\\-]+$",
+          "description": "Slug público coincidente con el ID del documento."
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID del docente creador."
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 180,
+          "description": "Título de la evaluación."
+        },
+        "subtitle": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 180,
+          "description": "Subtítulo."
+        },
+        "yearLabel": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 60,
+          "description": "Año escolar."
+        },
+        "course": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Curso."
+        },
+        "teachersText": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 160,
+          "description": "Docentes visibles."
+        },
+        "initialInstructions": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 2000,
+          "description": "Instrucciones de portada."
+        },
+        "maxAttempts": {
+          "type": "integer",
+          "description": "Máximo de intentos."
+        },
+        "feedbackEnabled": {
+          "type": "boolean",
+          "description": "Estado de devolución."
+        },
+        "status": {
+          "type": "string",
+          "enum": ["publicada", "cerrada"],
+          "description": "Solo las evaluaciones publicadas pueden leerse en vista estudiantil."
+        },
+        "consignas": {
+          "type": "array",
+          "description": "Consignas sanitizadas sin soluciones ni respuestas modelo."
+        },
+        "publishedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal de publicación."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal de actualización."
+        }
+      },
+      "required": ["schemaVersion", "examId", "slug", "ownerId", "title", "course", "maxAttempts", "feedbackEnabled", "status", "consignas", "publishedAt", "updatedAt"]
+    },
+    "ExamClosedKeys": {
+      "title": "ExamClosedKeys",
+      "description": "Claves cerradas (opción múltiple y verdadero/falso) para evaluación post-envío en el backend cuando feedbackEnabled está activo. Nunca incluye respuestas modelo abiertas.",
+      "type": "object",
+      "properties": {
+        "examId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "slug": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9\\-]+$"
+        },
+        "ownerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "feedbackEnabled": {
+          "type": "boolean"
+        },
+        "questions": {
+          "type": "object",
+          "description": "Mapa questionId -> definición de corrección cerrada."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["examId", "slug", "ownerId", "feedbackEnabled", "questions", "updatedAt"]
+    },
+    "ExamParticipant": {
+      "title": "ExamParticipant",
+      "description": "Estado de intentos y borrador en progreso de un participante identificado por código/nombre en una evaluación.",
+      "type": "object",
+      "properties": {
+        "examId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "examSlug": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9\\-]+$"
+        },
+        "examOwnerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128
+        },
+        "participantKey": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "participantName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        },
+        "attemptsUsed": {
+          "type": "integer"
+        },
+        "activeDraft": {
+          "type": "object",
+          "description": "Borrador en curso del participante (o null si no hay intento activo)."
+        },
+        "lastSubmittedAttemptId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["examId", "examSlug", "examOwnerId", "participantKey", "participantName", "attemptsUsed", "createdAt", "updatedAt"]
+    },
+    "ExamAttempt": {
+      "title": "ExamAttempt",
+      "description": "Entrega o intento registrado de un estudiante para una evaluación.",
+      "type": "object",
+      "properties": {
+        "examId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "ID de la evaluación."
+        },
+        "examSlug": {
+          "type": "string",
+          "minLength": 3,
+          "maxLength": 128,
+          "pattern": "^[a-z0-9\\-]+$",
+          "description": "Slug público de la evaluación."
+        },
+        "examOwnerId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID del docente dueño de la evaluación."
+        },
+        "participantKey": {
+          "type": "string",
+          "minLength": 6,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Clave determinística derivada del identificador del participante."
+        },
+        "participantName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nombre o código del participante."
+        },
+        "attemptNumber": {
+          "type": "integer",
+          "description": "Número de intento."
+        },
+        "idempotencyKey": {
+          "type": "string",
+          "minLength": 8,
+          "maxLength": 64,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Clave única de idempotencia para evitar envíos duplicados."
+        },
+        "answers": {
+          "type": "object",
+          "description": "Respuestas enviadas por el participante."
+        },
+        "closedFeedback": {
+          "type": "array",
+          "description": "Devolución automática de preguntas cerradas (vacía si feedbackEnabled es false)."
+        },
+        "autoScore": {
+          "type": "number",
+          "description": "Puntaje automático parcial en preguntas cerradas si corresponde."
+        },
+        "maxAutoScore": {
+          "type": "number",
+          "description": "Puntaje máximo evaluable automáticamente en preguntas cerradas."
+        },
+        "hasPendingManualGrading": {
+          "type": "boolean",
+          "description": "Indica si existen preguntas abiertas o cuadros comparativos pendientes."
+        },
+        "correctionStatus": {
+          "type": "string",
+          "enum": ["pendiente", "corregida"],
+          "description": "Estado de corrección."
+        },
+        "resultStatus": {
+          "type": "string",
+          "enum": ["pendiente", "aprobado", "desaprobado"],
+          "description": "Estado de aprobación."
+        },
+        "finalGrade": {
+          "type": "string",
+          "minLength": 0,
+          "maxLength": 40,
+          "description": "Nota final asignada por el docente."
+        },
+        "manualScores": {
+          "type": "object",
+          "description": "Mapa questionId -> puntaje manual asignado por el docente."
+        },
+        "tableRowScores": {
+          "type": "object",
+          "description": "Mapa questionId -> mapa rowId -> puntaje manual por fila de cuadro comparativo."
+        },
+        "questionNotes": {
+          "type": "object",
+          "description": "Mapa questionId -> devolución u observación opcional del docente."
+        },
+        "manualScore": {
+          "type": "number",
+          "description": "Suma de puntajes manuales asignados."
+        },
+        "totalScore": {
+          "type": "number",
+          "description": "Puntaje total acumulado (automático + manual)."
+        },
+        "maxTotalScore": {
+          "type": "number",
+          "description": "Puntaje máximo total evaluable en la evaluación."
+        },
+        "gradedByUid": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "description": "UID del docente o administrador que registró la última corrección."
+        },
+        "gradedByName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120,
+          "description": "Nombre del docente o administrador que corrigió."
+        },
+        "gradedByEmail": {
+          "type": "string",
+          "format": "email",
+          "minLength": 5,
+          "maxLength": 160,
+          "description": "Correo del docente o administrador que corrigió."
+        },
+        "gradedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Marca temporal del servidor cuando se guardó la última corrección."
+        },
+        "submittedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Fecha de entrega."
+        }
+      },
+      "required": ["examId", "examSlug", "examOwnerId", "participantKey", "participantName", "attemptNumber", "idempotencyKey", "answers", "closedFeedback", "hasPendingManualGrading", "correctionStatus", "resultStatus", "submittedAt"]
+    }
+  },
+  "firestore": {
+    "/authorizedUsers/{emailId}": {
+      "schema": { "$ref": "#/entities/AuthorizedUser" },
+      "description": "Lista blanca de correos docentes y administradores autorizados."
+    },
+    "/schoolConfig/{configId}": {
+      "schema": { "$ref": "#/entities/SchoolConfig" },
+      "description": "Configuración de identidad escolar (documento 'default')."
+    },
+    "/exams/{examId}": {
+      "schema": { "$ref": "#/entities/ExamPrivate" },
+      "description": "Evaluaciones privadas de cada docente con soluciones y claves."
+    },
+    "/examPublic/{slug}": {
+      "schema": { "$ref": "#/entities/ExamPublic" },
+      "description": "Evaluaciones publicadas sin soluciones para acceso público de estudiantes."
+    },
+    "/examClosedKeys/{slug}": {
+      "schema": { "$ref": "#/entities/ExamClosedKeys" },
+      "description": "Claves cerradas usadas por el backend al enviar cuando feedbackEnabled está activo."
+    },
+    "/examParticipants/{participantDocId}": {
+      "schema": { "$ref": "#/entities/ExamParticipant" },
+      "description": "Contador de intentos y borrador en progreso por participante."
+    },
+    "/attempts/{attemptId}": {
+      "schema": { "$ref": "#/entities/ExamAttempt" },
+      "description": "Entregas asociadas a evaluaciones (listado restringido al docente dueño o administrador)."
+    }
+  }
+}

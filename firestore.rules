@@ -1,0 +1,546 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Denegación global por defecto
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Primitivas globales ---
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidSlug(slug) {
+      return slug is string && slug.size() >= 3 && slug.size() <= 128 && slug.matches('^[a-z0-9\\-]+$');
+    }
+
+    function isValidEmailId(id) {
+      return id is string && id.size() >= 5 && id.size() <= 160 && id.matches('^[a-z0-9._%+\\-]+@[a-z0-9.\\-]+\\.[a-z]{2,}$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() &&
+        request.auth.token.email is string &&
+        request.auth.token.email_verified == true;
+    }
+
+    function authEmail() {
+      return request.auth.token.email.lower();
+    }
+
+    function isBootstrapOwner() {
+      return isEmailVerified() && authEmail() == 'flavia.perugia@bue.edu.ar';
+    }
+
+    function hasAuthDoc() {
+      return isEmailVerified() &&
+        exists(/databases/$(database)/documents/authorizedUsers/$(authEmail()));
+    }
+
+    function authUserDoc() {
+      return get(/databases/$(database)/documents/authorizedUsers/$(authEmail())).data;
+    }
+
+    function isAdmin() {
+      return isEmailVerified() && (
+        (hasAuthDoc() && authUserDoc().active == true && authUserDoc().role == 'admin') ||
+        (!hasAuthDoc() && isBootstrapOwner())
+      );
+    }
+
+    function isActiveTeacher() {
+      return isEmailVerified() &&
+        hasAuthDoc() &&
+        authUserDoc().active == true &&
+        (authUserDoc().role == 'teacher' || authUserDoc().role == 'admin');
+    }
+
+    // --- Validadores de esquema (Validation Blueprints) ---
+    function isValidAuthorizedUser(data, emailId) {
+      return data.keys().hasAll(['email', 'name', 'role', 'active', 'createdAt', 'updatedAt', 'updatedBy']) &&
+        data.keys().hasOnly(['email', 'name', 'role', 'active', 'createdAt', 'updatedAt', 'updatedBy']) &&
+        data.email is string &&
+        data.email == emailId &&
+        isValidEmailId(data.email) &&
+        data.name is string &&
+        data.name.size() >= 1 &&
+        data.name.size() <= 120 &&
+        data.role in ['teacher', 'admin'] &&
+        data.active is bool &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedBy is string &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 128 &&
+        data.updatedBy == request.auth.uid;
+    }
+
+    function isValidSchoolConfig(data) {
+      return data.keys().hasAll(['name', 'subtitle', 'primaryColor', 'logoPreset', 'updatedAt', 'updatedBy']) &&
+        data.keys().hasOnly(['name', 'subtitle', 'primaryColor', 'logoPreset', 'customLogoDataUrl', 'updatedAt', 'updatedBy']) &&
+        data.name is string &&
+        data.name.size() >= 1 &&
+        data.name.size() <= 120 &&
+        data.subtitle is string &&
+        data.subtitle.size() <= 120 &&
+        data.primaryColor is string &&
+        data.primaryColor.size() == 7 &&
+        data.primaryColor.matches('^#[0-9a-fA-F]{6}$') &&
+        data.logoPreset in ['laurel_book', 'technical_shield', 'academic_pillar', 'custom_url'] &&
+        (!('customLogoDataUrl' in data) || (data.customLogoDataUrl is string && data.customLogoDataUrl.size() <= 300000)) &&
+        data.updatedAt is timestamp &&
+        data.updatedBy is string &&
+        data.updatedBy.size() >= 1 &&
+        data.updatedBy.size() <= 128 &&
+        data.updatedBy == request.auth.uid;
+    }
+
+    function isValidExamPrivate(data) {
+      return data.keys().hasAll([
+          'schemaVersion', 'slug', 'title', 'course', 'ownerId', 'ownerEmail',
+          'maxAttempts', 'feedbackEnabled', 'status', 'submissionsCount',
+          'consignas', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'slug', 'title', 'subtitle', 'yearLabel', 'course', 'teachersText',
+          'ownerId', 'ownerEmail', 'initialInstructions', 'maxAttempts',
+          'feedbackEnabled', 'status', 'submissionsCount', 'consignas',
+          'gradingConfig', 'createdAt', 'updatedAt', 'publishedAt'
+        ]) &&
+        data.schemaVersion is int && data.schemaVersion >= 1 &&
+        isValidSlug(data.slug) &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 180 &&
+        (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 180)) &&
+        (!('yearLabel' in data) || (data.yearLabel is string && data.yearLabel.size() <= 60)) &&
+        data.course is string && data.course.size() >= 1 && data.course.size() <= 60 &&
+        (!('teachersText' in data) || (data.teachersText is string && data.teachersText.size() <= 160)) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+        data.ownerEmail is string && isValidEmailId(data.ownerEmail) &&
+        (!('initialInstructions' in data) || (data.initialInstructions is string && data.initialInstructions.size() <= 2000)) &&
+        data.maxAttempts is int && data.maxAttempts >= 1 && data.maxAttempts <= 10 &&
+        data.feedbackEnabled is bool &&
+        data.status in ['borrador', 'publicada', 'cerrada'] &&
+        data.submissionsCount is int && data.submissionsCount >= 0 &&
+        data.consignas is list && data.consignas.size() <= 50 &&
+        (!('gradingConfig' in data) || (data.gradingConfig is map && data.gradingConfig.size() <= 10 && data.gradingConfig.mode in ['libre', 'escala_personalizada'])) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('publishedAt' in data) || data.publishedAt is timestamp);
+    }
+
+    function isValidExamPublic(data, slugId) {
+      return data.keys().hasAll([
+          'schemaVersion', 'examId', 'slug', 'ownerId', 'title', 'course',
+          'maxAttempts', 'feedbackEnabled', 'status', 'consignas',
+          'publishedAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion', 'examId', 'slug', 'ownerId', 'title', 'subtitle', 'yearLabel',
+          'course', 'teachersText', 'initialInstructions', 'maxAttempts',
+          'feedbackEnabled', 'status', 'consignas', 'publishedAt', 'updatedAt'
+        ]) &&
+        data.schemaVersion is int && data.schemaVersion >= 1 &&
+        isValidId(data.examId) &&
+        data.slug == slugId &&
+        isValidSlug(data.slug) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 180 &&
+        (!('subtitle' in data) || (data.subtitle is string && data.subtitle.size() <= 180)) &&
+        (!('yearLabel' in data) || (data.yearLabel is string && data.yearLabel.size() <= 60)) &&
+        data.course is string && data.course.size() >= 1 && data.course.size() <= 60 &&
+        (!('teachersText' in data) || (data.teachersText is string && data.teachersText.size() <= 160)) &&
+        (!('initialInstructions' in data) || (data.initialInstructions is string && data.initialInstructions.size() <= 2000)) &&
+        data.maxAttempts is int && data.maxAttempts >= 1 && data.maxAttempts <= 10 &&
+        data.feedbackEnabled is bool &&
+        data.status in ['publicada', 'cerrada'] &&
+        data.consignas is list && data.consignas.size() <= 50 &&
+        data.publishedAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidExamClosedKeys(data, slugId) {
+      return data.keys().hasAll(['examId', 'slug', 'ownerId', 'feedbackEnabled', 'questions', 'updatedAt']) &&
+        data.keys().hasOnly(['examId', 'slug', 'ownerId', 'feedbackEnabled', 'questions', 'updatedAt']) &&
+        isValidId(data.examId) &&
+        data.slug == slugId &&
+        isValidSlug(data.slug) &&
+        data.ownerId is string && data.ownerId.size() >= 1 && data.ownerId.size() <= 128 &&
+        data.feedbackEnabled is bool &&
+        data.questions is map &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidExamParticipant(data, participantDocId) {
+      return data.keys().hasAll([
+          'examId', 'examSlug', 'examOwnerId', 'participantKey',
+          'participantName', 'attemptsUsed', 'createdAt', 'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'examId', 'examSlug', 'examOwnerId', 'participantKey',
+          'participantName', 'attemptsUsed', 'activeDraft',
+          'lastSubmittedAttemptId', 'createdAt', 'updatedAt'
+        ]) &&
+        isValidId(data.examId) &&
+        isValidSlug(data.examSlug) &&
+        data.examOwnerId is string && data.examOwnerId.size() >= 1 && data.examOwnerId.size() <= 128 &&
+        isValidId(data.participantKey) &&
+        data.participantKey.size() >= 6 && data.participantKey.size() <= 64 &&
+        participantDocId == (data.examId + '__' + data.participantKey) &&
+        data.participantName is string &&
+        data.participantName.size() >= 1 && data.participantName.size() <= 120 &&
+        data.attemptsUsed is int && data.attemptsUsed >= 0 && data.attemptsUsed <= 10 &&
+        (!('activeDraft' in data) || data.activeDraft == null || data.activeDraft is map) &&
+        (!('lastSubmittedAttemptId' in data) || (isValidId(data.lastSubmittedAttemptId) && data.lastSubmittedAttemptId.size() <= 128)) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidExamAttempt(data) {
+      return data.keys().hasAll([
+          'examId', 'examSlug', 'examOwnerId', 'participantKey', 'participantName',
+          'attemptNumber', 'idempotencyKey', 'answers', 'closedFeedback',
+          'hasPendingManualGrading', 'correctionStatus', 'resultStatus', 'submittedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'examId', 'examSlug', 'examOwnerId', 'participantKey', 'participantName',
+          'attemptNumber', 'idempotencyKey', 'answers', 'closedFeedback',
+          'autoScore', 'maxAutoScore', 'manualScore', 'totalScore', 'maxTotalScore',
+          'manualScores', 'tableRowScores', 'questionNotes',
+          'hasPendingManualGrading', 'correctionStatus', 'resultStatus', 'finalGrade',
+          'gradedByUid', 'gradedByName', 'gradedByEmail', 'gradedAt',
+          'submittedAt'
+        ]) &&
+        isValidId(data.examId) &&
+        isValidSlug(data.examSlug) &&
+        data.examOwnerId is string && data.examOwnerId.size() >= 1 && data.examOwnerId.size() <= 128 &&
+        isValidId(data.participantKey) && data.participantKey.size() >= 6 && data.participantKey.size() <= 64 &&
+        data.participantName is string && data.participantName.size() >= 1 && data.participantName.size() <= 120 &&
+        data.attemptNumber is int && data.attemptNumber >= 1 && data.attemptNumber <= 10 &&
+        isValidId(data.idempotencyKey) && data.idempotencyKey.size() >= 8 && data.idempotencyKey.size() <= 64 &&
+        data.answers is map &&
+        data.closedFeedback is list && data.closedFeedback.size() <= 200 &&
+        (!('autoScore' in data) || data.autoScore == null || data.autoScore is number) &&
+        (!('maxAutoScore' in data) || data.maxAutoScore == null || data.maxAutoScore is number) &&
+        (!('manualScore' in data) || data.manualScore == null || data.manualScore is number) &&
+        (!('totalScore' in data) || data.totalScore == null || data.totalScore is number) &&
+        (!('maxTotalScore' in data) || data.maxTotalScore == null || data.maxTotalScore is number) &&
+        (!('manualScores' in data) || (data.manualScores is map && data.manualScores.size() <= 200)) &&
+        (!('tableRowScores' in data) || (data.tableRowScores is map && data.tableRowScores.size() <= 200)) &&
+        (!('questionNotes' in data) || (data.questionNotes is map && data.questionNotes.size() <= 200)) &&
+        data.hasPendingManualGrading is bool &&
+        data.correctionStatus in ['pendiente', 'corregida'] &&
+        data.resultStatus in ['pendiente', 'aprobado', 'desaprobado'] &&
+        (!('finalGrade' in data) || data.finalGrade == null || (data.finalGrade is string && data.finalGrade.size() <= 40)) &&
+        (!('gradedByUid' in data) || (data.gradedByUid is string && data.gradedByUid.size() >= 1 && data.gradedByUid.size() <= 128)) &&
+        (!('gradedByName' in data) || (data.gradedByName is string && data.gradedByName.size() >= 1 && data.gradedByName.size() <= 120)) &&
+        (!('gradedByEmail' in data) || (data.gradedByEmail is string && isValidEmailId(data.gradedByEmail))) &&
+        (!('gradedAt' in data) || data.gradedAt is timestamp) &&
+        data.submittedAt is timestamp;
+    }
+
+    // --- Colección: /authorizedUsers/{emailId} ---
+    match /authorizedUsers/{emailId} {
+      allow get: if isEmailVerified() && isValidEmailId(emailId) && (
+        emailId == authEmail() || isAdmin()
+      );
+      allow list: if isAdmin();
+
+      allow create: if isAdmin() &&
+        isValidEmailId(emailId) &&
+        isValidAuthorizedUser(incoming(), emailId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isAdmin() &&
+        isValidEmailId(emailId) &&
+        isValidAuthorizedUser(incoming(), emailId) &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'role', 'active', 'updatedAt', 'updatedBy']);
+
+      allow delete: if false;
+    }
+
+    // --- Colección: /schoolConfig/{configId} ---
+    match /schoolConfig/{configId} {
+      allow get: if configId == 'default';
+      allow list: if false;
+
+      allow create: if isAdmin() &&
+        configId == 'default' &&
+        isValidSchoolConfig(incoming()) &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isAdmin() &&
+        configId == 'default' &&
+        isValidSchoolConfig(incoming()) &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'subtitle', 'primaryColor', 'logoPreset', 'customLogoDataUrl', 'updatedAt', 'updatedBy']);
+
+      allow delete: if false;
+    }
+
+    // --- Colección: /exams/{examId} (Privada de docentes/admin) ---
+    match /exams/{examId} {
+      allow get: if isValidId(examId) && (
+        isAdmin() ||
+        (isActiveTeacher() && existing().ownerId == request.auth.uid)
+      );
+
+      allow list: if isAdmin() ||
+        (isActiveTeacher() && existing().ownerId == request.auth.uid);
+
+      allow create: if isActiveTeacher() &&
+        isValidId(examId) &&
+        isValidExamPrivate(incoming()) &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().ownerEmail == authEmail() &&
+        incoming().submissionsCount == 0 &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isValidId(examId) &&
+        isValidExamPrivate(incoming()) &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().ownerEmail == existing().ownerEmail &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().schemaVersion >= existing().schemaVersion &&
+        incoming().updatedAt == request.time && (
+          (
+            incoming().diff(existing()).affectedKeys().hasOnly(['gradingConfig', 'updatedAt']) &&
+            (isAdmin() || (isActiveTeacher() && existing().ownerId == request.auth.uid))
+          ) ||
+          (
+            existing().status == 'publicada' &&
+            existing().submissionsCount > 0 &&
+            incoming().status == 'cerrada' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+            (isAdmin() || (isActiveTeacher() && existing().ownerId == request.auth.uid))
+          ) ||
+          (
+            !(existing().status == 'publicada' && existing().submissionsCount > 0) &&
+            existing().status != 'cerrada' &&
+            (
+              isAdmin() ||
+              (
+                isActiveTeacher() &&
+                existing().ownerId == request.auth.uid &&
+                incoming().diff(existing()).affectedKeys().hasOnly([
+                  'schemaVersion', 'slug', 'title', 'subtitle', 'yearLabel', 'course', 'teachersText',
+                  'initialInstructions', 'maxAttempts', 'feedbackEnabled',
+                  'status', 'consignas', 'gradingConfig', 'updatedAt', 'publishedAt'
+                ])
+              )
+            )
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // --- Colección: /examPublic/{slug} (Solo lectura pública cuando status == 'publicada') ---
+    match /examPublic/{slug} {
+      allow get: if isValidSlug(slug) && (
+        resource == null ||
+        existing().status == 'publicada' ||
+        isAdmin() ||
+        (isActiveTeacher() && existing().ownerId == request.auth.uid)
+      );
+
+      allow list: if false;
+
+      allow create: if isValidSlug(slug) &&
+        isValidExamPublic(incoming(), slug) &&
+        incoming().status == 'publicada' &&
+        incoming().publishedAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/exams/$(incoming().examId)) &&
+        get(/databases/$(database)/documents/exams/$(incoming().examId)).data.ownerId == incoming().ownerId &&
+        get(/databases/$(database)/documents/exams/$(incoming().examId)).data.status == 'publicada' && (
+          isAdmin() ||
+          (isActiveTeacher() && incoming().ownerId == request.auth.uid)
+        );
+
+      allow update: if isValidSlug(slug) &&
+        isValidExamPublic(incoming(), slug) &&
+        incoming().examId == existing().examId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().publishedAt == existing().publishedAt &&
+        incoming().updatedAt == request.time && (
+          (
+            incoming().status == 'cerrada' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']) &&
+            (isAdmin() || (isActiveTeacher() && existing().ownerId == request.auth.uid))
+          ) ||
+          (
+            get(/databases/$(database)/documents/exams/$(existing().examId)).data.submissionsCount == 0 && (
+              isAdmin() ||
+              (
+                isActiveTeacher() &&
+                existing().ownerId == request.auth.uid &&
+                incoming().diff(existing()).affectedKeys().hasOnly([
+                  'schemaVersion', 'title', 'subtitle', 'yearLabel', 'course', 'teachersText',
+                  'initialInstructions', 'maxAttempts', 'feedbackEnabled',
+                  'status', 'consignas', 'updatedAt'
+                ])
+              )
+            )
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // --- Colección: /examClosedKeys/{slug} (Solo evaluaciones publicadas con feedbackEnabled == true) ---
+    match /examClosedKeys/{slug} {
+      allow get: if isValidSlug(slug) && (
+        resource == null ||
+        isAdmin() ||
+        (isActiveTeacher() && existing().ownerId == request.auth.uid) ||
+        (
+          existing().feedbackEnabled == true &&
+          exists(/databases/$(database)/documents/examPublic/$(slug)) &&
+          get(/databases/$(database)/documents/examPublic/$(slug)).data.status == 'publicada' &&
+          get(/databases/$(database)/documents/examPublic/$(slug)).data.feedbackEnabled == true
+        )
+      );
+
+      allow list: if false;
+
+      allow create: if isValidSlug(slug) &&
+        isValidExamClosedKeys(incoming(), slug) &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/exams/$(incoming().examId)) &&
+        get(/databases/$(database)/documents/exams/$(incoming().examId)).data.ownerId == incoming().ownerId && (
+          isAdmin() ||
+          (isActiveTeacher() && incoming().ownerId == request.auth.uid)
+        );
+
+      allow update: if isValidSlug(slug) &&
+        isValidExamClosedKeys(incoming(), slug) &&
+        incoming().examId == existing().examId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          (
+            isActiveTeacher() &&
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['feedbackEnabled', 'questions', 'updatedAt'])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // --- Colección: /examParticipants/{participantDocId} ---
+    match /examParticipants/{participantDocId} {
+      allow get: if isValidId(participantDocId);
+      allow list: if false;
+
+      allow create: if isValidId(participantDocId) &&
+        isValidExamParticipant(incoming(), participantDocId) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/examPublic/$(incoming().examSlug)) &&
+        get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.status == 'publicada' &&
+        get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.examId == incoming().examId &&
+        get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.ownerId == incoming().examOwnerId &&
+        incoming().attemptsUsed <= get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.maxAttempts && (
+          incoming().attemptsUsed == 0 ||
+          (
+            incoming().attemptsUsed == 1 &&
+            'lastSubmittedAttemptId' in incoming() &&
+            existsAfter(/databases/$(database)/documents/attempts/$(incoming().lastSubmittedAttemptId))
+          )
+        );
+
+      allow update: if isValidId(participantDocId) &&
+        isValidExamParticipant(incoming(), participantDocId) &&
+        incoming().examId == existing().examId &&
+        incoming().examSlug == existing().examSlug &&
+        incoming().examOwnerId == existing().examOwnerId &&
+        incoming().participantKey == existing().participantKey &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        exists(/databases/$(database)/documents/examPublic/$(existing().examSlug)) &&
+        get(/databases/$(database)/documents/examPublic/$(existing().examSlug)).data.status == 'publicada' && (
+          // Acción 1: Guardar o retomar borrador sin alterar intentos consumidos
+          (
+            incoming().attemptsUsed == existing().attemptsUsed &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['participantName', 'activeDraft', 'updatedAt'])
+          ) ||
+          // Acción 2: Confirmar entrega incrementando exactamente +1 intento atómicamente con /attempts/{attemptId}
+          (
+            incoming().attemptsUsed == existing().attemptsUsed + 1 &&
+            incoming().attemptsUsed <= get(/databases/$(database)/documents/examPublic/$(existing().examSlug)).data.maxAttempts &&
+            'lastSubmittedAttemptId' in incoming() &&
+            existsAfter(/databases/$(database)/documents/attempts/$(incoming().lastSubmittedAttemptId)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'participantName', 'attemptsUsed', 'activeDraft', 'lastSubmittedAttemptId', 'updatedAt'
+            ])
+          )
+        );
+
+      allow delete: if false;
+    }
+
+    // --- Colección: /attempts/{attemptId} ---
+    match /attempts/{attemptId} {
+      allow get: if isValidId(attemptId);
+
+      allow list: if isAdmin() ||
+        (isActiveTeacher() && existing().examOwnerId == request.auth.uid);
+
+      allow create: if isValidId(attemptId) &&
+        isValidExamAttempt(incoming()) &&
+        attemptId == (incoming().examId + '__' + incoming().idempotencyKey) &&
+        incoming().submittedAt == request.time &&
+        incoming().correctionStatus == 'pendiente' &&
+        incoming().resultStatus == 'pendiente' &&
+        exists(/databases/$(database)/documents/examPublic/$(incoming().examSlug)) &&
+        get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.status == 'publicada' &&
+        get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.examId == incoming().examId &&
+        get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.ownerId == incoming().examOwnerId &&
+        incoming().attemptNumber <= get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.maxAttempts &&
+        getAfter(/databases/$(database)/documents/examParticipants/$(incoming().examId + '__' + incoming().participantKey)).data.attemptsUsed == incoming().attemptNumber;
+
+      allow update: if isValidId(attemptId) &&
+        isValidExamAttempt(incoming()) &&
+        incoming().examId == existing().examId &&
+        incoming().examSlug == existing().examSlug &&
+        incoming().examOwnerId == existing().examOwnerId &&
+        incoming().participantKey == existing().participantKey &&
+        incoming().idempotencyKey == existing().idempotencyKey &&
+        incoming().submittedAt == existing().submittedAt &&
+        incoming().gradedByUid == request.auth.uid &&
+        incoming().gradedByEmail == authEmail() &&
+        incoming().gradedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'manualScores', 'tableRowScores', 'questionNotes',
+          'autoScore', 'maxAutoScore', 'manualScore', 'totalScore', 'maxTotalScore',
+          'correctionStatus', 'resultStatus', 'finalGrade',
+          'gradedByUid', 'gradedByName', 'gradedByEmail', 'gradedAt'
+        ]) && (
+          isAdmin() ||
+          (isActiveTeacher() && existing().examOwnerId == request.auth.uid)
+        );
+
+      allow delete: if false;
+    }
+  }
+}
