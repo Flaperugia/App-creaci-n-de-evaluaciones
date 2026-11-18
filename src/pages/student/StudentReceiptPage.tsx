@@ -182,8 +182,8 @@ export function StudentReceiptPage() {
           <dt className="text-xs font-medium text-slate-500">Participante</dt>
           <dd className="mt-0.5 font-semibold text-[#0F1E36]">
             {receipt.participantName}
-            <span className="ml-2 text-xs font-normal font-mono-tabular text-slate-500">
-              (Intento {receipt.attemptNumber} de {receipt.maxAttempts})
+            <span className="ml-2 text-xs font-normal text-slate-500">
+              (Intento único)
             </span>
           </dd>
         </div>

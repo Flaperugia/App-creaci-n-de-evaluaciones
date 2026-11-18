@@ -163,7 +163,7 @@
         },
         "maxAttempts": {
           "type": "integer",
-          "description": "Cantidad máxima de intentos permitidos."
+          "description": "Cantidad máxima de intentos permitidos (1 en el MVP Spark)."
         },
         "feedbackEnabled": {
           "type": "boolean",
@@ -296,7 +296,7 @@
     },
     "ExamClosedKeys": {
       "title": "ExamClosedKeys",
-      "description": "Claves cerradas (opción múltiple y verdadero/falso) para evaluación post-envío en el backend cuando feedbackEnabled está activo. Nunca incluye respuestas modelo abiertas.",
+      "description": "Claves cerradas (opción múltiple y verdadero/falso) usadas al enviar cuando feedbackEnabled está activo. Nunca incluye respuestas modelo abiertas ni respuestas de cuadros comparativos.",
       "type": "object",
       "properties": {
         "examId": {
@@ -427,7 +427,7 @@
         },
         "attemptNumber": {
           "type": "integer",
-          "description": "Número de intento."
+          "description": "Número de intento (único intento: 1)."
         },
         "idempotencyKey": {
           "type": "string",

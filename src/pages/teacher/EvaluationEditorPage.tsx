@@ -21,9 +21,11 @@ import {
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ComparativeTableView } from '../../components/common/ComparativeTableView';
 import { ImageAttachmentField } from '../../components/common/ImageAttachmentField';
+import { SafeExamImage } from '../../components/common/SafeExamImage';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { SurveyStandardQuestion } from '../../components/common/SurveyStandardQuestion';
 import { useAppState } from '../../context/AppStateContext';
+import { validateHttpsImageUrl } from '../../utils/imageUrl';
 import {
   closeExamInFirestore,
   duplicateExamInFirestore,
@@ -247,13 +249,13 @@ export function EvaluationEditorPage() {
         if (!resolved) {
           setNotFound(true);
         } else {
-          setDraft(structuredClone(resolved));
+          setDraft({ ...structuredClone(resolved), maxAttempts: 1 });
           setDuplicateCourse(resolved.course);
         }
       } catch {
         if (!cancelled) {
           if (inMemory) {
-            setDraft(structuredClone(inMemory));
+            setDraft({ ...structuredClone(inMemory), maxAttempts: 1 });
             setDuplicateCourse(inMemory.course);
           } else {
             setNotFound(true);
@@ -278,10 +280,6 @@ export function EvaluationEditorPage() {
     draft.status === 'publicada' && draft.submissionsCount > 0;
   const isClosed = draft.status === 'cerrada';
   const isReadOnly = isLockedPublished || isClosed;
-
-  const uploaderUid = firebaseUser?.uid ?? draft.ownerId ?? '';
-  const storageExamFolderId =
-    draft.id && !draft.id.startsWith('exam-nuevo-') ? draft.id : 'borrador';
 
   const toggleModelAnswer = (qId: string) => {
     setExpandedModelIds((prev) => ({ ...prev, [qId]: !prev[qId] }));
@@ -514,12 +512,8 @@ export function EvaluationEditorPage() {
   const validationChecks = [
     {
       id: 'title',
-      label: 'Datos generales completos (título, curso y máximo de intentos ≥ 1)',
-      ok:
-        draft.title.trim().length > 0 &&
-        draft.course.trim().length > 0 &&
-        Number.isInteger(draft.maxAttempts) &&
-        draft.maxAttempts >= 1,
+      label: 'Datos generales completos (título y curso)',
+      ok: draft.title.trim().length > 0 && draft.course.trim().length > 0,
     },
     {
       id: 'consignas',
@@ -566,17 +560,12 @@ export function EvaluationEditorPage() {
     },
     {
       id: 'images',
-      label: 'Las imágenes adjuntas están en Firebase Storage y tienen texto alternativo',
+      label: 'Las imágenes adjuntas (si hay) usan URLs HTTPS válidas',
       ok: draft.consignas.every(
         (c) =>
-          (!c.image ||
-            (!c.image.url.startsWith('data:image/') &&
-              c.image.alt.trim().length > 0)) &&
+          (!c.image || validateHttpsImageUrl(c.image.url).valid) &&
           c.questions.every(
-            (q) =>
-              !q.image ||
-              (!q.image.url.startsWith('data:image/') &&
-                q.image.alt.trim().length > 0)
+            (q) => !q.image || validateHttpsImageUrl(q.image.url).valid
           )
       ),
     },
@@ -1025,31 +1014,12 @@ export function EvaluationEditorPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label
-                htmlFor="exam-attempts"
-                className="block text-sm font-medium text-[#0F1E36]"
-              >
-                Cantidad máxima de intentos *
-              </label>
-              <input
-                id="exam-attempts"
-                type="number"
-                disabled={isReadOnly}
-                min={1}
-                max={10}
-                step={1}
-                value={draft.maxAttempts}
-                onChange={(e) => {
-                  const parsed = parseInt(e.target.value, 10);
-                  setDraft({
-                    ...draft,
-                    maxAttempts: Number.isNaN(parsed)
-                      ? 1
-                      : Math.max(1, Math.min(10, parsed)),
-                  });
-                }}
-                className="h-11 w-full rounded-lg border border-slate-200 bg-white px-3.5 text-sm font-mono-tabular text-[#0F1E36] focus:border-[var(--brand-primary)] focus:outline-none disabled:bg-slate-50"
-              />
+              <span className="block text-sm font-medium text-[#0F1E36]">
+                Modalidad de entrega
+              </span>
+              <div className="flex h-11 items-center rounded-lg border border-slate-200 bg-[#FAFBFD] px-3.5 text-sm text-slate-600">
+                Intento único por estudiante (autoguardado previo al envío)
+              </div>
             </div>
 
             <div className="sm:col-span-2 space-y-1.5">
@@ -1306,12 +1276,10 @@ export function EvaluationEditorPage() {
                     </div>
                   )}
 
-                  {/* Consigna Image via Firebase Storage */}
+                  {/* Imagen opcional de consigna mediante URL HTTPS */}
                   <ImageAttachmentField
                     image={consigna.image}
-                    ownerId={uploaderUid}
-                    examId={storageExamFolderId}
-                    label="Adjuntar imagen opcional a la consigna"
+                    label="Agregar imagen opcional a la consigna"
                     disabled={isReadOnly}
                     onChange={(nextImg) =>
                       handleUpdateConsigna(consigna.id, { image: nextImg })
@@ -1443,12 +1411,10 @@ export function EvaluationEditorPage() {
                           />
                         </div>
 
-                        {/* Optional Question Image via Firebase Storage */}
+                        {/* Imagen opcional de pregunta mediante URL HTTPS */}
                         <ImageAttachmentField
                           image={question.image}
-                          ownerId={uploaderUid}
-                          examId={storageExamFolderId}
-                          label="Adjuntar imagen opcional a esta pregunta"
+                          label="Agregar imagen opcional a esta pregunta"
                           disabled={isReadOnly}
                           onChange={(nextImg) =>
                             handleUpdateQuestion(consigna.id, question.id, {
@@ -2173,14 +2139,11 @@ export function EvaluationEditorPage() {
                 )}
 
                 {previewConsigna.image && (
-                  <figure className="overflow-hidden rounded-xl border border-slate-200 bg-[#FAFBFD]">
-                    <img
-                      src={previewConsigna.image.url}
-                      alt={previewConsigna.image.alt || previewConsigna.title}
-                      referrerPolicy="no-referrer"
-                      className="max-h-72 w-full object-contain"
-                    />
-                  </figure>
+                  <SafeExamImage
+                    image={previewConsigna.image}
+                    fallbackAlt={previewConsigna.title}
+                    className="max-h-72 w-full object-contain"
+                  />
                 )}
 
                 {previewConsigna.contextBoxText && (
@@ -2213,14 +2176,11 @@ export function EvaluationEditorPage() {
                       </div>
 
                       {q.image && (
-                        <figure className="overflow-hidden rounded-xl border border-slate-200 bg-[#FAFBFD]">
-                          <img
-                            src={q.image.url}
-                            alt={q.image.alt || q.prompt}
-                            referrerPolicy="no-referrer"
-                            className="max-h-64 w-full object-contain"
-                          />
-                        </figure>
+                        <SafeExamImage
+                          image={q.image}
+                          fallbackAlt={q.prompt}
+                          className="max-h-64 w-full object-contain"
+                        />
                       )}
 
                       {(q.type === 'abierta' ||

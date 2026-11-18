@@ -1,5 +1,6 @@
 import { CheckCircle2, FileText } from 'lucide-react';
 import { ComparativeTableView } from '../common/ComparativeTableView';
+import { SafeExamImage } from '../common/SafeExamImage';
 import { formatScore, getQuestionMaxPoints } from '../../services/gradingAndExportService';
 import { ExamDefinition, QuestionItem } from '../../types/assessment';
 
@@ -102,14 +103,11 @@ export function ExamConsignasTab({ exam }: ExamConsignasTabProps) {
           </div>
 
           {con.image && (
-            <figure className="overflow-hidden rounded-xl border border-slate-200 bg-[#FAFBFD]">
-              <img
-                src={con.image.url}
-                alt={con.image.alt || con.title}
-                referrerPolicy="no-referrer"
-                className="max-h-64 w-full object-contain"
-              />
-            </figure>
+            <SafeExamImage
+              image={con.image}
+              fallbackAlt={con.title}
+              className="max-h-64 w-full object-contain"
+            />
           )}
 
           {con.contextBoxText && (
@@ -157,14 +155,11 @@ export function ExamConsignasTab({ exam }: ExamConsignasTabProps) {
                   </div>
 
                   {q.image && (
-                    <figure className="overflow-hidden rounded-lg border border-slate-200 bg-white">
-                      <img
-                        src={q.image.url}
-                        alt={q.image.alt || q.prompt}
-                        referrerPolicy="no-referrer"
-                        className="max-h-52 w-full object-contain"
-                      />
-                    </figure>
+                    <SafeExamImage
+                      image={q.image}
+                      fallbackAlt={q.prompt}
+                      className="max-h-52 w-full object-contain"
+                    />
                   )}
 
                   {renderQuestionKey(q)}

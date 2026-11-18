@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { DEFAULT_SCHOOL_IDENTITY } from '../data/sampleData';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
+import { validateHttpsImageUrl } from '../utils/imageUrl';
 import {
   AuthorizedTeacher,
   ClosedFeedbackItem,
@@ -64,16 +65,18 @@ function cleanImageForFirestore(
   image: QuestionImage | undefined
 ): QuestionImage | undefined {
   if (!image) return undefined;
-  if (image.url.startsWith('data:image/')) {
+  const check = validateHttpsImageUrl(image.url);
+  if (!check.valid || !check.normalizedUrl) {
     throw new Error(
-      'No se permite guardar imágenes en base64 dentro de Firestore. Usá Firebase Storage.'
+      check.error ||
+        'Solo se admiten URLs HTTPS válidas para las imágenes adjuntas.'
     );
   }
+  const cleanAlt = (image.alt ?? '').trim().slice(0, 240);
   return {
-    url: image.url,
-    alt: image.alt.trim().slice(0, 240),
-    fileName: image.fileName.slice(0, 160),
-    ...(image.storagePath ? { storagePath: image.storagePath } : {}),
+    url: check.normalizedUrl,
+    alt: cleanAlt,
+    ...(image.fileName ? { fileName: image.fileName.slice(0, 160) } : {}),
   };
 }
 
@@ -175,9 +178,6 @@ export function validateExamForPublish(exam: ExamDefinition): string[] {
   if (!exam.course.trim()) {
     errors.push('Falta indicar el curso en Datos generales.');
   }
-  if (!Number.isInteger(exam.maxAttempts) || exam.maxAttempts < 1) {
-    errors.push('La cantidad máxima de intentos debe ser un entero mayor o igual a 1.');
-  }
   if (exam.consignas.length === 0) {
     errors.push('La evaluación debe incluir al menos una consigna.');
   }
@@ -185,11 +185,9 @@ export function validateExamForPublish(exam: ExamDefinition): string[] {
   exam.consignas.forEach((con, cIdx) => {
     const cNum = cIdx + 1;
     if (con.image) {
-      if (con.image.url.startsWith('data:image/')) {
-        errors.push(`Consigna ${cNum}: la imagen debe subirse a Firebase Storage (no base64).`);
-      }
-      if (!con.image.alt.trim()) {
-        errors.push(`Consigna ${cNum}: falta el texto alternativo (alt) de la imagen.`);
+      const check = validateHttpsImageUrl(con.image.url);
+      if (!check.valid) {
+        errors.push(`Consigna ${cNum}: ${check.error || 'la URL de la imagen debe comenzar con https://.'}`);
       }
     }
 
@@ -203,11 +201,9 @@ export function validateExamForPublish(exam: ExamDefinition): string[] {
         errors.push(`${qLabel}: falta el enunciado.`);
       }
       if (q.image) {
-        if (q.image.url.startsWith('data:image/')) {
-          errors.push(`${qLabel}: la imagen debe subirse a Firebase Storage (no base64).`);
-        }
-        if (!q.image.alt.trim()) {
-          errors.push(`${qLabel}: falta el texto alternativo (alt) de la imagen.`);
+        const check = validateHttpsImageUrl(q.image.url);
+        if (!check.valid) {
+          errors.push(`${qLabel}: ${check.error || 'la URL de la imagen debe comenzar con https://.'}`);
         }
       }
       if (q.points !== null && q.points < 0) {
@@ -670,7 +666,7 @@ export async function saveExamDraft(
         course: courseVal,
         teachersText: draft.teachersText.slice(0, 160),
         initialInstructions: draft.initialInstructions.slice(0, 2000),
-        maxAttempts: Math.max(1, Math.min(10, Math.round(draft.maxAttempts || 1))),
+        maxAttempts: 1,
         feedbackEnabled: Boolean(draft.feedbackEnabled),
         status: existingData.status === 'publicada' ? 'publicada' : 'borrador',
         consignas: sanitizedConsignas,
@@ -691,7 +687,7 @@ export async function saveExamDraft(
             course: courseVal,
             teachersText: draft.teachersText.slice(0, 160),
             initialInstructions: draft.initialInstructions.slice(0, 2000),
-            maxAttempts: Math.max(1, Math.min(10, Math.round(draft.maxAttempts || 1))),
+            maxAttempts: 1,
             feedbackEnabled: Boolean(draft.feedbackEnabled),
             status: 'publicada',
             consignas: sanitizeConsignasForPublic(sanitizedConsignas),
@@ -718,7 +714,7 @@ export async function saveExamDraft(
         ownerId: user.uid,
         ownerEmail: emailId,
         initialInstructions: draft.initialInstructions.slice(0, 2000),
-        maxAttempts: Math.max(1, Math.min(10, Math.round(draft.maxAttempts || 1))),
+        maxAttempts: 1,
         feedbackEnabled: Boolean(draft.feedbackEnabled),
         status: 'borrador',
         submissionsCount: 0,
@@ -778,7 +774,7 @@ export async function publishExam(
       course: draft.course.trim().slice(0, 60),
       teachersText: draft.teachersText.slice(0, 160),
       initialInstructions: draft.initialInstructions.slice(0, 2000),
-      maxAttempts: Math.max(1, Math.min(10, Math.round(draft.maxAttempts || 1))),
+      maxAttempts: 1,
       feedbackEnabled: Boolean(draft.feedbackEnabled),
       status: 'publicada',
       consignas: sanitizeConsignasForPublic(sanitizedConsignas),
@@ -847,7 +843,7 @@ export async function duplicateExamInFirestore(
       ownerId: user.uid,
       ownerEmail: emailId,
       initialInstructions: source.initialInstructions.slice(0, 2000),
-      maxAttempts: Math.max(1, Math.min(10, source.maxAttempts || 1)),
+      maxAttempts: 1,
       feedbackEnabled: Boolean(source.feedbackEnabled),
       status: 'borrador',
       submissionsCount: 0,

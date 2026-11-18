@@ -1,0 +1,20 @@
+{
+  "firestore": {
+    "database": "ai-studio-plataformadeeval-3bfc0caf-caf4-4e0d-a1cb-f4155977de5a",
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  }
+}

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { ComparativeTableView } from '../../components/common/ComparativeTableView';
+import { SafeExamImage } from '../../components/common/SafeExamImage';
 import { SurveyStandardQuestion } from '../../components/common/SurveyStandardQuestion';
 import { useAppState } from '../../context/AppStateContext';
 import { usePublicExam } from '../../hooks/usePublicExam';
@@ -720,13 +721,9 @@ export function StudentActivityPage() {
             <span className="font-semibold text-[#0F1E36]">
               {studentDraft.studentName}
             </span>
-            {typeof studentDraft.attemptNumber === 'number' &&
-              typeof studentDraft.maxAttempts === 'number' && (
-                <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-mono-tabular text-slate-600">
-                  Intento {studentDraft.attemptNumber} de{' '}
-                  {studentDraft.maxAttempts}
-                </span>
-              )}
+            <span className="rounded-md border border-slate-200 bg-white px-2 py-0.5 text-xs font-medium text-slate-600">
+              Intento único
+            </span>
           </div>
           <Link
             to={`/e/${exam.slug}`}
@@ -757,14 +754,11 @@ export function StudentActivityPage() {
             </div>
 
             {consigna.image && (
-              <figure className="overflow-hidden rounded-xl border border-slate-200 bg-[#FAFBFD]">
-                <img
-                  src={consigna.image.url}
-                  alt={consigna.image.alt || consigna.title}
-                  referrerPolicy="no-referrer"
-                  className="max-h-72 w-full object-contain"
-                />
-              </figure>
+              <SafeExamImage
+                image={consigna.image}
+                fallbackAlt={consigna.title}
+                className="max-h-72 w-full object-contain"
+              />
             )}
 
             {consigna.contextBoxText && (
@@ -802,14 +796,11 @@ export function StudentActivityPage() {
                   ) : null}
 
                   {question.image && (
-                    <figure className="overflow-hidden rounded-xl border border-slate-200 bg-[#FAFBFD]">
-                      <img
-                        src={question.image.url}
-                        alt={question.image.alt || question.prompt}
-                        referrerPolicy="no-referrer"
-                        className="max-h-64 w-full object-contain"
-                      />
-                    </figure>
+                    <SafeExamImage
+                      image={question.image}
+                      fallbackAlt={question.prompt}
+                      className="max-h-64 w-full object-contain"
+                    />
                   )}
 
                   {renderQuestionInput(question)}

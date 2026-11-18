@@ -79,9 +79,9 @@ export const CURRENT_EXAM_SCHEMA_VERSION = 1;
 
 export interface QuestionImage {
   url: string;
-  storagePath?: string;
   alt: string;
-  fileName: string;
+  fileName?: string;
+  storagePath?: string;
 }
 
 export interface QuestionItem {

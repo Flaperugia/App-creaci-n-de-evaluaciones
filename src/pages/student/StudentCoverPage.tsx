@@ -8,7 +8,7 @@ import {
   RefreshCw,
   WifiOff,
 } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { SchoolLogo } from '../../components/common/SchoolLogo';
 import { useAppState } from '../../context/AppStateContext';
 import { usePublicExam } from '../../hooks/usePublicExam';
@@ -30,6 +30,9 @@ export function StudentCoverPage() {
   const [hasExistingLocalDraft, setHasExistingLocalDraft] = useState(false);
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [blockedReceiptAttemptId, setBlockedReceiptAttemptId] = useState<
+    string | null
+  >(null);
   const [isOffline, setIsOffline] = useState(
     typeof navigator !== 'undefined' ? !navigator.onLine : false
   );
@@ -124,6 +127,7 @@ export function StudentCoverPage() {
     }
 
     setError(null);
+    setBlockedReceiptAttemptId(null);
     setStarting(true);
 
     try {
@@ -143,8 +147,8 @@ export function StudentCoverPage() {
         participantKey: res.participantKey,
         studentName: res.participantName,
         idempotencyKey: res.draft.idempotencyKey,
-        attemptNumber: res.attemptsUsed + 1,
-        maxAttempts: res.maxAttempts,
+        attemptNumber: 1,
+        maxAttempts: 1,
         startedAt: res.draft.startedAt,
         currentStepIndex: shouldKeepPendingLocal
           ? localExisting.currentStepIndex
@@ -166,6 +170,7 @@ export function StudentCoverPage() {
     } catch (err) {
       if (err instanceof StudentApiError) {
         setError(err.message);
+        setBlockedReceiptAttemptId(err.attemptId ?? null);
       } else {
         setError(
           'No se pudo iniciar la evaluación. Verificá tu conexión e intentá nuevamente.'
@@ -224,8 +229,8 @@ export function StudentCoverPage() {
             'Leé cada consigna con atención antes de responder. Podés avanzar entre actividades y revisar tus respuestas antes del envío definitivo.'}
         </p>
         <p className="text-xs text-slate-500">
-          Actividades totales: {exam.consignas.length} · Intentos permitidos:{' '}
-          {exam.maxAttempts}
+          Actividades totales: {exam.consignas.length} · Entrega única (1 intento
+          por participante)
         </p>
       </div>
 
@@ -247,6 +252,7 @@ export function StudentCoverPage() {
             onChange={(e) => {
               setStudentName(e.target.value);
               if (error) setError(null);
+              if (blockedReceiptAttemptId) setBlockedReceiptAttemptId(null);
             }}
             placeholder="Ej. EST-04 o María Belén Rivas"
             className="h-12 w-full rounded-xl border border-slate-200 bg-white px-4 text-base text-[#0F1E36] placeholder:text-slate-400 focus:border-[var(--brand-primary)] focus:outline-none"
@@ -277,13 +283,28 @@ export function StudentCoverPage() {
           {error && (
             <div
               role="alert"
-              className="flex items-start gap-2 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs sm:text-sm font-medium text-rose-800"
+              className="space-y-2 rounded-lg border border-rose-200 bg-rose-50 px-3.5 py-2.5 text-xs sm:text-sm font-medium text-rose-800"
             >
-              <AlertCircle
-                className="h-4 w-4 shrink-0 mt-0.5 text-rose-700"
-                aria-hidden="true"
-              />
-              <span>{error}</span>
+              <div className="flex items-start gap-2">
+                <AlertCircle
+                  className="h-4 w-4 shrink-0 mt-0.5 text-rose-700"
+                  aria-hidden="true"
+                />
+                <span>{error}</span>
+              </div>
+              {blockedReceiptAttemptId && (
+                <div className="pl-6">
+                  <Link
+                    to={`/e/${exam.slug}/recibo?intento=${encodeURIComponent(
+                      blockedReceiptAttemptId
+                    )}`}
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-rose-900 underline underline-offset-2 hover:text-rose-950"
+                  >
+                    <span>Ver comprobante de la entrega registrada</span>
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                  </Link>
+                </div>
+              )}
             </div>
           )}
         </div>

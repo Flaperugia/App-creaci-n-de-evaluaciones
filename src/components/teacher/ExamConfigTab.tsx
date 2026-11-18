@@ -160,10 +160,10 @@ export function ExamConfigTab({ exam }: ExamConfigTabProps) {
           </div>
           <div>
             <dt className="text-xs font-medium text-slate-500">
-              Máximo de intentos
+              Modalidad de intentos
             </dt>
-            <dd className="mt-0.5 font-mono-tabular text-[#0F1E36]">
-              {exam.maxAttempts}
+            <dd className="mt-0.5 text-[#0F1E36]">
+              Intento único (1)
             </dd>
           </div>
           <div>

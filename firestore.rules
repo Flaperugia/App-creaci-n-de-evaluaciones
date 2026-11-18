@@ -202,7 +202,7 @@ service cloud.firestore {
         participantDocId == (data.examId + '__' + data.participantKey) &&
         data.participantName is string &&
         data.participantName.size() >= 1 && data.participantName.size() <= 120 &&
-        data.attemptsUsed is int && data.attemptsUsed >= 0 && data.attemptsUsed <= 10 &&
+        data.attemptsUsed is int && data.attemptsUsed >= 0 && data.attemptsUsed <= 1 &&
         (!('activeDraft' in data) || data.activeDraft == null || data.activeDraft is map) &&
         (!('lastSubmittedAttemptId' in data) || (isValidId(data.lastSubmittedAttemptId) && data.lastSubmittedAttemptId.size() <= 128)) &&
         data.createdAt is timestamp &&
@@ -229,7 +229,7 @@ service cloud.firestore {
         data.examOwnerId is string && data.examOwnerId.size() >= 1 && data.examOwnerId.size() <= 128 &&
         isValidId(data.participantKey) && data.participantKey.size() >= 6 && data.participantKey.size() <= 64 &&
         data.participantName is string && data.participantName.size() >= 1 && data.participantName.size() <= 120 &&
-        data.attemptNumber is int && data.attemptNumber >= 1 && data.attemptNumber <= 10 &&
+        data.attemptNumber == 1 &&
         isValidId(data.idempotencyKey) && data.idempotencyKey.size() >= 8 && data.idempotencyKey.size() <= 64 &&
         data.answers is map &&
         data.closedFeedback is list && data.closedFeedback.size() <= 200 &&
@@ -310,6 +310,7 @@ service cloud.firestore {
         isValidExamPrivate(incoming()) &&
         incoming().ownerId == request.auth.uid &&
         incoming().ownerEmail == authEmail() &&
+        incoming().maxAttempts == 1 &&
         incoming().submissionsCount == 0 &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time;
@@ -367,6 +368,7 @@ service cloud.firestore {
       allow create: if isValidSlug(slug) &&
         isValidExamPublic(incoming(), slug) &&
         incoming().status == 'publicada' &&
+        incoming().maxAttempts == 1 &&
         incoming().publishedAt == request.time &&
         incoming().updatedAt == request.time &&
         exists(/databases/$(database)/documents/exams/$(incoming().examId)) &&
@@ -460,6 +462,7 @@ service cloud.firestore {
         get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.status == 'publicada' &&
         get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.examId == incoming().examId &&
         get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.ownerId == incoming().examOwnerId &&
+        incoming().attemptsUsed <= 1 &&
         incoming().attemptsUsed <= get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.maxAttempts && (
           incoming().attemptsUsed == 0 ||
           (
@@ -484,9 +487,10 @@ service cloud.firestore {
             incoming().attemptsUsed == existing().attemptsUsed &&
             incoming().diff(existing()).affectedKeys().hasOnly(['participantName', 'activeDraft', 'updatedAt'])
           ) ||
-          // Acción 2: Confirmar entrega incrementando exactamente +1 intento atómicamente con /attempts/{attemptId}
+          // Acción 2: Confirmar entrega única incrementando de 0 a 1 atómicamente con /attempts/{attemptId}
           (
-            incoming().attemptsUsed == existing().attemptsUsed + 1 &&
+            existing().attemptsUsed == 0 &&
+            incoming().attemptsUsed == 1 &&
             incoming().attemptsUsed <= get(/databases/$(database)/documents/examPublic/$(existing().examSlug)).data.maxAttempts &&
             'lastSubmittedAttemptId' in incoming() &&
             existsAfter(/databases/$(database)/documents/attempts/$(incoming().lastSubmittedAttemptId)) &&
@@ -516,8 +520,13 @@ service cloud.firestore {
         get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.status == 'publicada' &&
         get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.examId == incoming().examId &&
         get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.ownerId == incoming().examOwnerId &&
+        incoming().attemptNumber == 1 &&
         incoming().attemptNumber <= get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.maxAttempts &&
-        getAfter(/databases/$(database)/documents/examParticipants/$(incoming().examId + '__' + incoming().participantKey)).data.attemptsUsed == incoming().attemptNumber;
+        (
+          get(/databases/$(database)/documents/examPublic/$(incoming().examSlug)).data.feedbackEnabled == true ||
+          (incoming().closedFeedback.size() == 0 && !('autoScore' in incoming()) && !('maxAutoScore' in incoming()))
+        ) &&
+        getAfter(/databases/$(database)/documents/examParticipants/$(incoming().examId + '__' + incoming().participantKey)).data.attemptsUsed == 1;
 
       allow update: if isValidId(attemptId) &&
         isValidExamAttempt(incoming()) &&
