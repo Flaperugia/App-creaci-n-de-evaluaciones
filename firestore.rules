@@ -299,7 +299,7 @@ service cloud.firestore {
     match /exams/{examId} {
       allow get: if isValidId(examId) && (
         isAdmin() ||
-        (isActiveTeacher() && existing().ownerId == request.auth.uid)
+        (isActiveTeacher() && (resource == null || existing().ownerId == request.auth.uid))
       );
 
       allow list: if isAdmin() ||

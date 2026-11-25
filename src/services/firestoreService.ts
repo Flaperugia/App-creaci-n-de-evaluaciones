@@ -619,12 +619,15 @@ export async function saveExamDraft(
   draft: ExamDefinition,
   user: User
 ): Promise<{ examId: string; slug: string }> {
-  const cleanId =
-    draft.id && !draft.id.startsWith('exam-nuevo-')
-      ? draft.id
-      : `exam_${user.uid.slice(0, 8)}_${Date.now()}`;
+  const isNewLocalDraft = !draft.id || draft.id.startsWith('exam-nuevo-');
+  const cleanId = !isNewLocalDraft
+    ? draft.id
+    : `exam_${user.uid.slice(0, 8)}_${Date.now()}`;
   const cleanSlug =
-    draft.slug && /^[a-z0-9-]+$/.test(draft.slug) && draft.slug.length >= 3
+    draft.slug &&
+    /^[a-z0-9-]+$/.test(draft.slug) &&
+    draft.slug.length >= 3 &&
+    draft.slug.length <= 128
       ? draft.slug
       : slugifyExamTitle(
           draft.title || 'evaluacion',
@@ -632,16 +635,21 @@ export async function saveExamDraft(
         );
 
   const emailId = normalizeEmail(user.email || draft.ownerEmail || '');
+  if (!emailId) {
+    throw new Error('La cuenta de Google no tiene un correo electrónico verificado.');
+  }
   const sanitizedConsignas = sanitizeConsignasForFirestore(draft.consignas);
   const path = `exams/${cleanId}`;
   const docRef = doc(db, 'exams', cleanId);
+  let currentOp: OperationType = OperationType.WRITE;
 
   try {
-    const existingSnap = await getDoc(docRef);
+    currentOp = OperationType.GET;
+    const existingSnap = isNewLocalDraft ? null : await getDoc(docRef);
     const titleVal = (draft.title.trim() || 'Evaluación sin título').slice(0, 180);
     const courseVal = (draft.course.trim() || 'Sin curso').slice(0, 60);
 
-    if (existingSnap.exists()) {
+    if (existingSnap?.exists()) {
       const existingData = existingSnap.data();
       if (
         existingData.status === 'publicada' &&
@@ -672,13 +680,16 @@ export async function saveExamDraft(
         consignas: sanitizedConsignas,
         updatedAt: serverTimestamp(),
       };
+      currentOp = OperationType.UPDATE;
       await updateDoc(docRef, updatePayload);
 
       // Si seguía publicada sin entregas, mantenemos examPublic y examClosedKeys sincronizados
       if (existingData.status === 'publicada') {
         const pubRef = doc(db, 'examPublic', String(existingData.slug));
+        currentOp = OperationType.GET;
         const pubSnap = await getDoc(pubRef);
         if (pubSnap.exists()) {
+          currentOp = OperationType.UPDATE;
           await updateDoc(pubRef, {
             schemaVersion: CURRENT_EXAM_SCHEMA_VERSION,
             title: titleVal,
@@ -694,6 +705,7 @@ export async function saveExamDraft(
             updatedAt: serverTimestamp(),
           });
         }
+        currentOp = OperationType.WRITE;
         await syncExamClosedKeys({
           examId: cleanId,
           slug: String(existingData.slug),
@@ -703,6 +715,7 @@ export async function saveExamDraft(
         });
       }
     } else {
+      currentOp = OperationType.CREATE;
       await setDoc(docRef, {
         schemaVersion: CURRENT_EXAM_SCHEMA_VERSION,
         slug: cleanSlug,
@@ -729,7 +742,7 @@ export async function saveExamDraft(
     if (error instanceof Error && error.message.includes('Duplicála')) {
       throw error;
     }
-    handleFirestoreError(error, OperationType.WRITE, path);
+    handleFirestoreError(error, currentOp, path);
   }
 }
 
